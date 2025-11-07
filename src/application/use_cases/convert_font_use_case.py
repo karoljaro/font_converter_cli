@@ -5,6 +5,12 @@ from pathlib import Path
 from application.dto import ConvertFontRequest, ConvertFontResult
 from domain.entities import Font
 from domain.enums import FontFormat
+from domain.exceptions import (
+    FontConversionError,
+    FontConversionFailedError,
+    InputFileNotFoundError,
+    InvalidFontFormatError,
+)
 from domain.ports import FileServicePort, FontConverterPort
 
 
@@ -30,20 +36,29 @@ class ConvertFontUseCase:
             ConvertFontResult with output file path and success status
 
         Raises:
-            FileNotFoundError: If input file does not exist
-            ValueError: If target format conversion is not allowed
+            InputFileNotFoundError: If input file does not exist
+            FontConversionError: If target format conversion is not allowed
+            FontConversionFailedError: If conversion process fails
         """
         # 1. Validate input file exists
         if not self.file_service.file_exists(request.input_file_path):
-            raise FileNotFoundError(f"Input file not found: {request.input_file_path}")
+            raise InputFileNotFoundError(
+                f"Input file not found: {request.input_file_path}"
+            )
 
         # 2. Determine output file path
         output_path = self._determine_output_path(request)
 
         # 3. Create Font entity and validate conversion is possible
-        font = Font(original_format=self._detect_font_format(request.input_file_path))
+        try:
+            font = Font(
+                original_format=self._detect_font_format(request.input_file_path)
+            )
+        except InvalidFontFormatError as e:
+            raise FontConversionError(str(e)) from e
+
         if not font.can_convert_to(request.target_format):
-            raise ValueError(
+            raise FontConversionError(
                 f"Cannot convert from {font.original_format.value} to "
                 f"{request.target_format.value}"
             )
@@ -55,11 +70,11 @@ class ConvertFontUseCase:
                 output_path,
                 request.target_format,
             )
-        except Exception:
+        except Exception as e:
             # Cleanup on failure
             if self.file_service.file_exists(output_path):
                 self.file_service.delete_file(output_path)
-            raise
+            raise FontConversionFailedError(f"Font conversion failed: {str(e)}") from e
 
         # 5. Return result
         return ConvertFontResult(
@@ -85,4 +100,4 @@ class ConvertFontUseCase:
         try:
             return FontFormat(extension)
         except ValueError:
-            raise ValueError(f"Unknown font format: {extension}")
+            raise InvalidFontFormatError(f"Unknown font format: {extension}")
