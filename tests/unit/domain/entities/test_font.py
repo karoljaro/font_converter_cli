@@ -78,3 +78,47 @@ class TestFontInstantiation:
         """Można stworzyć czcionkę WOFF2"""
         font = Font(original_format=FontFormat.WOFF2)
         assert font.original_format == FontFormat.WOFF2
+
+
+class TestIsSameFormat:
+    """Testy metody is_same_format"""
+
+    def test_ttf_is_same_as_ttf(self, ttf_font: Font) -> None:
+        """TTF powinno być tym samym formatem co TTF"""
+        assert ttf_font.is_same_format(FontFormat.TTF) is True
+
+    def test_ttf_is_not_same_as_otf(self, ttf_font: Font) -> None:
+        """TTF nie powinno być tym samym formatem co OTF"""
+        assert ttf_font.is_same_format(FontFormat.OTF) is False
+
+    def test_ttf_is_not_same_as_woff(self, ttf_font: Font) -> None:
+        """TTF nie powinno być tym samym formatem co WOFF"""
+        assert ttf_font.is_same_format(FontFormat.WOFF) is False
+
+    def test_ttf_is_not_same_as_woff2(self, ttf_font: Font) -> None:
+        """TTF nie powinno być tym samym formatem co WOFF2"""
+        assert ttf_font.is_same_format(FontFormat.WOFF2) is False
+
+    def test_otf_is_same_as_otf(self, otf_font: Font) -> None:
+        """OTF powinno być tym samym formatem co OTF"""
+        assert otf_font.is_same_format(FontFormat.OTF) is True
+
+    def test_otf_is_not_same_as_ttf(self, otf_font: Font) -> None:
+        """OTF nie powinno być tym samym formatem co TTF"""
+        assert otf_font.is_same_format(FontFormat.TTF) is False
+
+    def test_woff_is_same_as_woff(self, woff_font: Font) -> None:
+        """WOFF powinno być tym samym formatem co WOFF"""
+        assert woff_font.is_same_format(FontFormat.WOFF) is True
+
+    def test_woff_is_not_same_as_woff2(self, woff_font: Font) -> None:
+        """WOFF nie powinno być tym samym formatem co WOFF2"""
+        assert woff_font.is_same_format(FontFormat.WOFF2) is False
+
+    def test_woff2_is_same_as_woff2(self, woff2_font: Font) -> None:
+        """WOFF2 powinno być tym samym formatem co WOFF2"""
+        assert woff2_font.is_same_format(FontFormat.WOFF2) is True
+
+    def test_woff2_is_not_same_as_woff(self, woff2_font: Font) -> None:
+        """WOFF2 nie powinno być tym samym formatem co WOFF"""
+        assert woff2_font.is_same_format(FontFormat.WOFF) is False
