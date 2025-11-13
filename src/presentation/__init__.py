@@ -1,5 +1,5 @@
 """Presentation layer - CLI interface for font conversion tool."""
 
-__all__ = ["app"]
+__all__ = ["FontConverterCLI"]
 
-from .cli import app
+from .cli import FontConverterCLI
