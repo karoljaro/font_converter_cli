@@ -1,15 +1,16 @@
 """Main entry point for font converter CLI application."""
 
-from presentation.cli import app
 from bootstrap import create_container
 
 
 def main() -> None:
-    """Run the CLI application after wiring dependencies."""
+    """Run the CLI application after constructing dependencies."""
     container = create_container()
-    container.wire(modules=["presentation.cli"])
 
-    app()
+    # Build CLI via the container and run it. No module wiring required
+    # because CLI is constructed with explicit constructor injection.
+    cli = container.cli()
+    cli.run()
 
 
 if __name__ == "__main__":
