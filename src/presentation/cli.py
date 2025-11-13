@@ -12,7 +12,9 @@ import typer
 
 from application.use_cases.convert_font_use_case import ConvertFontUseCase
 from application.dto.convert_font_request import ConvertFontRequest
+from application.dto.convert_font_result import ConvertFontResult
 from domain.enums.font_format import FontFormat
+from domain.ports import OutputPathResolverPort
 from .exception_handlers import handle_exceptions
 
 
@@ -23,8 +25,15 @@ class FontConverterCLI:
     to start the CLI programmatically.
     """
 
-    def __init__(self, use_case: ConvertFontUseCase) -> None:
+    # ============================ CLI Initialization ============================
+
+    def __init__(
+        self,
+        use_case: ConvertFontUseCase,
+        output_path_resolver: OutputPathResolverPort,
+    ) -> None:
         self.use_case = use_case
+        self.output_path_resolver = output_path_resolver
         self.app = typer.Typer(
             help="Font conversion tool supporting TTF, OTF, WOFF, and WOFF2 formats."
         )
@@ -32,6 +41,8 @@ class FontConverterCLI:
         # Register commands
         self.app.command(name="convert")(self._convert_command)
         self.app.callback()(self._main_callback)
+
+    # ============================ CLI Commands ============================
 
     @handle_exceptions
     def _convert_command(
@@ -58,69 +69,103 @@ class FontConverterCLI:
             ),
         ),
     ) -> None:
-        """Convert INPUT_FILE to another font format (command handler)."""
-
-        # Determine target format (default to woff2 when not provided)
-        if format is None:
-            typer.secho(
-                "ℹ️  No --format provided, defaulting to woff2.", fg=typer.colors.YELLOW
-            )
-            target_format = FontFormat.WOFF2
-        else:
-            try:
-                target_format = FontFormat(format.lower())
-            except ValueError:
-                typer.secho(
-                    f"❌ Invalid format: {format}", fg=typer.colors.RED, err=True
-                )
-                typer.secho(
-                    "Valid formats are: ttf, otf, woff, woff2",
-                    fg=typer.colors.YELLOW,
-                    err=True,
-                )
-                raise typer.Exit(code=1)
-
+        """Convert INPUT_FILE to another font format (orchestrator)."""
         input_path = input_file
 
-        # Determine output path
-        if output is None:
-            output_path = input_path.with_suffix(f".{target_format.value}")
-        else:
-            output_path_candidate = Path(output)
-            if output_path_candidate.exists() and output_path_candidate.is_dir():
-                output_path = (
-                    output_path_candidate / f"{input_path.stem}.{target_format.value}"
-                )
-            elif output_path_candidate.suffix == "":
-                output_path_candidate.mkdir(parents=True, exist_ok=True)
-                output_path = (
-                    output_path_candidate / f"{input_path.stem}.{target_format.value}"
-                )
-            else:
-                desired_suffix = f".{target_format.value}"
-                if output_path_candidate.suffix.lower() != desired_suffix:
-                    typer.secho(
-                        "⚠️  Adjusting output filename to match target format "
-                        f"({desired_suffix}).",
-                        fg=typer.colors.YELLOW,
-                    )
-                    output_path = output_path_candidate.with_suffix(desired_suffix)
-                else:
-                    output_path = output_path_candidate
+        # Step 1: Parse and validate target format
+        target_format = self._parse_target_format(format)
 
+        # Step 2: Resolve output path
+        output_path = self._resolve_output_path_with_warning(
+            input_path, target_format, output
+        )
+
+        # Step 3: Execute conversion
+        self._log_conversion_start(input_path, target_format)
+        result = self._execute_conversion(input_path, target_format, output_path)
+
+        # Step 4: Log success
+        self._log_conversion_success(result)
+
+    # ============================ Private Helpers ============================
+
+    def _parse_target_format(self, format_str: Optional[str]) -> FontFormat:
+        """Parse and validate target font format.
+
+        Defaults to WOFF2 if not provided.
+        """
+        if format_str is None:
+            typer.secho(
+                "ℹ️  No --format provided, defaulting to woff2.",
+                fg=typer.colors.YELLOW,
+            )
+            return FontFormat.WOFF2
+
+        try:
+            return FontFormat(format_str.lower())
+        except ValueError:
+            typer.secho(
+                f"❌ Invalid format: {format_str}", fg=typer.colors.RED, err=True
+            )
+            typer.secho(
+                "Valid formats are: ttf, otf, woff, woff2",
+                fg=typer.colors.YELLOW,
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+    def _resolve_output_path_with_warning(
+        self,
+        input_path: Path,
+        target_format: FontFormat,
+        output: Optional[str],
+    ) -> Path:
+        """Resolve output path and warn if format adjustment is needed."""
+        output_path = self.output_path_resolver.resolve(
+            input_path, target_format, output
+        )
+
+        # Warn if user provided a file with wrong suffix
+        if output is not None:
+            output_candidate = Path(output)
+            desired_suffix = f".{target_format.value}"
+            if (
+                output_candidate.suffix != ""
+                and output_candidate.suffix.lower() != desired_suffix
+            ):
+                typer.secho(
+                    "⚠️  Adjusting output filename to match target format "
+                    f"({desired_suffix}).",
+                    fg=typer.colors.YELLOW,
+                )
+
+        return output_path
+
+    def _log_conversion_start(
+        self, input_path: Path, target_format: FontFormat
+    ) -> None:
+        """Log conversion start."""
         typer.secho(
             f"🔄 Converting {input_path.name} → {target_format.value}...",
             fg=typer.colors.BLUE,
         )
 
+    def _execute_conversion(
+        self,
+        input_path: Path,
+        target_format: FontFormat,
+        output_path: Path,
+    ) -> ConvertFontResult:
+        """Execute font conversion via use case."""
         request = ConvertFontRequest(
             input_file_path=input_path,
             target_format=target_format,
             output_file_path=output_path,
         )
+        return self.use_case.execute(request)
 
-        result = self.use_case.execute(request)
-
+    def _log_conversion_success(self, result: ConvertFontResult) -> None:
+        """Log conversion success."""
         typer.secho("✅ Font converted successfully!", fg=typer.colors.GREEN)
         typer.secho(f"📁 Output file: {result.output_file_path}", fg=typer.colors.GREEN)
 
