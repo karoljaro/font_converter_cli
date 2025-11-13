@@ -73,23 +73,23 @@ class FontConverterCLI:
         input_path = input_file
 
         # Step 1: Parse and validate target format
-        target_format = self._parse_target_format(format)
+        target_format = self.parse_target_format(format)
 
         # Step 2: Resolve output path
-        output_path = self._resolve_output_path_with_warning(
+        output_path = self.resolve_output_path_with_warning(
             input_path, target_format, output
         )
 
         # Step 3: Execute conversion
-        self._log_conversion_start(input_path, target_format)
-        result = self._execute_conversion(input_path, target_format, output_path)
+        self.log_conversion_start(input_path, target_format)
+        result = self.execute_conversion(input_path, target_format, output_path)
 
         # Step 4: Log success
-        self._log_conversion_success(result)
+        self.log_conversion_success(result)
 
-    # ============================ Private Helpers ============================
+    # ============================ Helper Methods ============================
 
-    def _parse_target_format(self, format_str: Optional[str]) -> FontFormat:
+    def parse_target_format(self, format_str: Optional[str]) -> FontFormat:
         """Parse and validate target font format.
 
         Defaults to WOFF2 if not provided.
@@ -114,7 +114,7 @@ class FontConverterCLI:
             )
             raise typer.Exit(code=1)
 
-    def _resolve_output_path_with_warning(
+    def resolve_output_path_with_warning(
         self,
         input_path: Path,
         target_format: FontFormat,
@@ -141,16 +141,14 @@ class FontConverterCLI:
 
         return output_path
 
-    def _log_conversion_start(
-        self, input_path: Path, target_format: FontFormat
-    ) -> None:
+    def log_conversion_start(self, input_path: Path, target_format: FontFormat) -> None:
         """Log conversion start."""
         typer.secho(
             f"🔄 Converting {input_path.name} → {target_format.value}...",
             fg=typer.colors.BLUE,
         )
 
-    def _execute_conversion(
+    def execute_conversion(
         self,
         input_path: Path,
         target_format: FontFormat,
@@ -164,7 +162,7 @@ class FontConverterCLI:
         )
         return self.use_case.execute(request)
 
-    def _log_conversion_success(self, result: ConvertFontResult) -> None:
+    def log_conversion_success(self, result: ConvertFontResult) -> None:
         """Log conversion success."""
         typer.secho("✅ Font converted successfully!", fg=typer.colors.GREEN)
         typer.secho(f"📁 Output file: {result.output_file_path}", fg=typer.colors.GREEN)
